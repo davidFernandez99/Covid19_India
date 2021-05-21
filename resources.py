@@ -4,7 +4,7 @@ epoch = datetime.datetime.utcfromtimestamp(0)
 
 
 def convert_to_milliseconds(dt):
-    return (dt - epoch).total_seconds() * 1000.0
+    return (dt - epoch).total_seconds() * 1000
 
 
 def insert_default_json(client, json_body):
@@ -15,13 +15,10 @@ def insert_default_json(client, json_body):
     :return:
     """
 
-    print(f"json type: {type(json_body)}")
-    print(json_body)
-
     try:
         # Should return True
         client.write_points(json_body)
-        print("JSON inserted successfully")
+        #print("JSON inserted successfully")
     except Exception as e:
         print(str(e))
 
