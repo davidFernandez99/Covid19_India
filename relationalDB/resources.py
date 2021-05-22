@@ -16,7 +16,8 @@ def connect_postgres():
     :return: the connection which will allow us to interact with the database; None if we could not create a connection
     """
     try:
-        return psycopg2.connect(database="india_covid", user="postgres", password="postgres")
+        conn = psycopg2.connect(database="covid_world", user="postgres", password="postgres")
+        return conn
     except Exception as e:
         print(e)
         return None
@@ -60,6 +61,7 @@ def create_table(table_name):
 
     # If we could not connected to the database we will exit
     if not conn:
+        print("Could not connect to the database")
         return
 
     # Like a pointer to the database
@@ -199,13 +201,13 @@ def compute_data_from_time_series(table_name, db_name, month):
 
         # Compute data
         for data in query_output:
-            total_confirmed += data['dailyconfirmed']
-            total_deceased += data['dailydeceased']
-            total_recovered += data['dailyrecovered']
+            total_confirmed += int(data['dailyconfirmed'])
+            total_deceased += int(data['dailydeceased'])
+            total_recovered += int(data['dailyrecovered'])
             days += 1
-        avg_confirmed = total_confirmed / days
-        avg_deceased = total_deceased / days
-        avg_recovered = total_recovered / days
+        avg_confirmed = round(total_confirmed / days, 2)
+        avg_deceased = round(total_deceased / days, 2)
+        avg_recovered = round(total_recovered / days, 2)
 
         # Write the data into Table
         insert_data(table_name, month, avg_confirmed, avg_deceased, avg_recovered, total_confirmed, total_deceased, total_recovered, days)

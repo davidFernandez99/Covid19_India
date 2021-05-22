@@ -12,7 +12,7 @@ DB_NAME = "weather_db"
 months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
 # Get path of the Json directory
-dir_path = os.path.dirname(os.path.realpath(__file__)) + '/data'
+dir_path = os.path.dirname(os.path.realpath(__file__)).replace('timeSeriesDB', '/data')
 
 # Get all json files from the directory
 json_files = [dir_path + f'/{f}' for f in os.listdir(dir_path)]
