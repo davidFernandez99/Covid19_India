@@ -1,4 +1,6 @@
 """
+RUN THIS FILE TO CREATE AND FILL THE TIME SERIES DATABASE
+
 This file will create a new database into InfluxDB and will insert a json body with all data to fill the database.
 """
 import os

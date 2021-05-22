@@ -4,6 +4,8 @@ This file will contain all the functions which will allow us to interact with In
 import json
 import datetime
 
+from influxdb import InfluxDBClient
+
 
 def create_new_database(client, db_name):
     """
@@ -57,19 +59,41 @@ def insert_point(client, measurement_name, points):
     :param points:
     :return:
     """
-    # TODO discuss how to pass data
+    # Create a new json body with only the necessary data extracted and in the correct format
+    new_json_body = [
+        {
+            "measurement": measurement_name,
+            "tags": {},
+            "fields": points
+        }
+    ]
+
+    # Write the points to the database
+    insert_json(client, new_json_body)
 
 
-def update_point(client, measurement_name, points):
+def update_point(client, measurement_name, points, time):
     """
     Update the value of a specific point from a specific measurement
 
     :param client: the client that connects with InfluxDB
     :param measurement_name: the measurement name where we want to update the point
     :param points:
+    :param time:
     :return:
     """
-    # TODO discuss how to pass data
+    # Create a new json body with only the necessary data extracted and in the correct format
+    new_json_body = [
+        {
+            "measurement": measurement_name,
+            "tags": {},
+            "time": str(time),
+            "fields": points
+        }
+    ]
+
+    # Write the points to the database
+    insert_json(client, new_json_body)
 
 
 def drop_database(client, db_name):
@@ -184,3 +208,21 @@ def create_and_write_json(client, json_file):
 
             # Write the points to the database
             insert_json(client, new_json_body)
+
+
+def get_point(client, month, time):
+    return list(client.query(f"SELECT * FROM {month} WHERE (time='{time}');"))
+
+"""
+# Create new client to connect with InfluxDB
+try:
+    client = InfluxDBClient(host="localhost", port=8086)
+except Exception as e:
+    print(e)
+else:
+    # Select database
+    select_database(client, "weather_db")
+    # time = datetime.datetime.strptime(f"2020-05-15", '%Y-%m-%d')
+    time = datetime.datetime.strptime("2020-01-30", '%Y-%m-%d')
+    print(time)
+    print(get_point(client, "May", "2020-05-10"))"""

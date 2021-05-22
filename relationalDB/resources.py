@@ -172,10 +172,48 @@ def delete_data(table_name, month):
         commit_changes(conn, cur)
 
 
+def get_data(table_name, atr_tuple=None, dicc_conditions=None):
+    """
+    Get data from a table
+    :param table_name: Name of the table where we will select the data
+    :param atr_list: Tuple of attributes que want to select
+    :param dicc_conditions: Dictionary of conditions with format key = column, value = value column
+    :return: List of data selected
+    """
+    conn = connect_postgres()
+
+    # If we could not connected to the database we will exit
+    if not conn:
+        print("Could not connect to the database")
+        return
+
+    # Like a pointer to the database
+    cur = conn.cursor()
+
+    try:
+        columns_select = '*'
+        if atr_tuple:
+            columns_select = atr_tuple
+        if dicc_conditions:
+            condition = ''
+            keys = list(dicc_conditions.keys())
+            condition += f"{keys[0]}='{dicc_conditions[keys[0]]}'"
+            for key_id in range(1, len(keys)):
+                key = list(dicc_conditions.keys())[key_id]
+                condition += f"AND {key}='{dicc_conditions[key]}'"
+            print(f"SELECT {columns_select} FROM {table_name} WHERE {condition};")
+            cur.execute(f"SELECT {columns_select} FROM {table_name} WHERE {condition};")
+        else:
+            cur.execute(f"SELECT {columns_select} FROM {table_name};")
+
+        return list(cur.fetchall())
+    except Exception as e:
+        print(e)
+
+
 def compute_data_from_time_series(table_name, db_name, month):
     """
     Read data from the time series data and compute the necessary data in order to write to the relational table
-
     :param table_name: where we will write the data computed
     :param db_name: the name of the time series database from which we will collect the data
     :param month: the measurement name from which we will read the data and the PK to be writen in the relational database
@@ -190,24 +228,43 @@ def compute_data_from_time_series(table_name, db_name, month):
         # Select database
         res.select_database(client, db_name)
 
+        lista_tablas = get_data('information_schema.tables', ('table_name'), {'table_schema': 'public'})
+        lista_tablas = [tupla[0] for tupla in lista_tablas]
+        print(f"lista tablas: {lista_tablas}")
+
         # init
-        total_confirmed = 0
-        total_deceased = 0
-        total_recovered = 0
-        days = 0
+        dicc_years = {}
 
         # Get the data we inserted in the time series database of each month
         query_output = res.get_month_data_time_series(client, month)
 
         # Compute data
         for data in query_output:
-            total_confirmed += int(data['dailyconfirmed'])
-            total_deceased += int(data['dailydeceased'])
-            total_recovered += int(data['dailyrecovered'])
-            days += 1
-        avg_confirmed = round(total_confirmed / days, 2)
-        avg_deceased = round(total_deceased / days, 2)
-        avg_recovered = round(total_recovered / days, 2)
+            # Check the year of the data
+            time = data['time'].split("-")[0]
 
-        # Write the data into Table
-        insert_data(table_name, month, avg_confirmed, avg_deceased, avg_recovered, total_confirmed, total_deceased, total_recovered, days)
+            #If is a new year of this month we creat a new key for this year with the values, we need this cause we
+            # store all the years data in the same mesuarement in influxdb
+            if time not in list(dicc_years.keys()):
+                dicc_years[time] = {'total_confirmed': 0, 'total_deceased': 0, 'total_recovered': 0, 'days': 0,
+                                    'avg_confirmed': 0, 'avg_deceased': 0, 'avg_recovered': 0}
+                if table_name+time not in lista_tablas:
+                    create_table(table_name+time)
+                    lista_tablas.append(table_name+time)
+            dicc_years[time]['total_confirmed'] += int(data['dailyconfirmed'])
+            dicc_years[time]['total_deceased'] += int(data['dailydeceased'])
+            dicc_years[time]['total_recovered'] += int(data['dailyrecovered'])
+            dicc_years[time]['days'] += 1
+
+        for key in list(dicc_years.keys()):
+            days = dicc_years[key]['days']
+            dicc_years[key]['avg_confirmed'] = round(dicc_years[key]['total_confirmed'] / days, 2)
+            dicc_years[key]['avg_deceased'] = round(dicc_years[key]['total_deceased'] / days, 2)
+            dicc_years[key]['avg_recovered'] = round(dicc_years[key]['total_recovered'] / days, 2)
+            # Write the data into Table
+            insert_data(table_name+key, month, dicc_years[key]['avg_confirmed'], dicc_years[key]['avg_deceased'],
+                        dicc_years[key]['avg_recovered'], dicc_years[key]['total_confirmed'],
+                        dicc_years[key]['total_deceased'], dicc_years[key]['total_recovered'], days)
+
+
+print(get_data('india_covid_2020', dicc_conditions={"month": 'May'}))
