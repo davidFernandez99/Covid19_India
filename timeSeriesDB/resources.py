@@ -126,6 +126,20 @@ def drop_measurement(client, measurement_name):
         print(e)
 
 
+def delete_data(client, measurement_name, time):
+    """
+    Delete a data from the selected database with a specific time
+    :param client: the client that connects with InfluxDB
+    :param measurement_name: the measurement name
+    :param time: Time of the data we want to delete
+    :return:
+    """
+    try:
+        return client.query(f"DELETE FROM {measurement_name} WHERE (time='{time}');")
+    except Exception as e:
+        print(e)
+
+
 def show_measurements(client):
     """
     Show all measurements of a specific database (must be selected)
@@ -177,13 +191,11 @@ def create_and_write_json(client, json_file):
     :return:
     """
     with open(json_file) as json_f:
-
         # Get all data from the json file and convert into a dictionary
         list_data = json.load(json_f)["cases_time_series"]
 
         # Each day will be a point
         for day in list_data:
-
             # Get data from dictionary
             measurement = day["date"].split()[1]
             time = datetime.datetime.strptime(day["dateymd"], '%Y-%m-%d')
@@ -213,8 +225,9 @@ def create_and_write_json(client, json_file):
 def get_point(client, month, time):
     return list(client.query(f"SELECT * FROM {month} WHERE (time='{time}');"))
 
-"""
-# Create new client to connect with InfluxDB
+
+
+"""# Create new client to connect with InfluxDB
 try:
     client = InfluxDBClient(host="localhost", port=8086)
 except Exception as e:
@@ -222,7 +235,6 @@ except Exception as e:
 else:
     # Select database
     select_database(client, "weather_db")
-    # time = datetime.datetime.strptime(f"2020-05-15", '%Y-%m-%d')
-    time = datetime.datetime.strptime("2020-01-30", '%Y-%m-%d')
-    print(time)
-    print(get_point(client, "May", "2020-05-10"))"""
+    print(get_month_data_time_series(client, "May"))
+    delete_data(client, "May", "2020-05-01T00:00:00Z")
+    print(get_month_data_time_series(client, "May"))"""

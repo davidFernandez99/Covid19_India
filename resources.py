@@ -32,11 +32,13 @@ def show_help_commands():
     """
     print("\n###### COMMANDS ######")
     print("* insert " + Fore.CYAN + "confirmed_today deceased_today recovered_today")
-    print("\tPlease, just insert the cases for this particular day, do not put the total number of cases! The values must be separated"
-          "\n\tby spaces.")
+    print(
+        "\tPlease, just insert the cases for this particular day, do not put the total number of cases! The values must be separated"
+        "\n\tby spaces.")
     print("\n* update " + Fore.CYAN + "confirmed_today deceased_today recovered_today YYYY-MM-DD")
-    print("\tPlease, just insert the cases for that particular day, do not put the total number of cases! The timestamp is obligatory in order"
-          "\n\tto be able do identify the point in the TimeSeriesDB and in the relational DB.")
+    print(
+        "\tPlease, just insert the cases for that particular day, do not put the total number of cases! The timestamp is obligatory in order"
+        "\n\tto be able do identify the point in the TimeSeriesDB and in the relational DB.")
     print("\n* delete " + Fore.CYAN + "YYYY-MM-DD")
     print("\tInsert the timestamp, and the point to be removed will be identified.")
     print("\n* exit, close, quit")
@@ -76,8 +78,9 @@ def check_data_format(data_time):
     """
     data_list = data_time.split("-")
     if len(data_list) == 3:
-        if len(data_list[0]) == 4 and check_int(data_list[0]) and len(data_list[1]) == 2 and check_int(data_list[1]) and len(data_list[2]) == 2 and check_int(
-                data_list[2]):
+        if len(data_list[0]) == 4 and check_int(data_list[0]) and len(data_list[1]) == 2 and check_int(
+                data_list[1]) and len(data_list[2]) == 2 and check_int(
+            data_list[2]):
             return True
     return False
 
@@ -104,7 +107,8 @@ def check_format_update_point(cmd_list):
     :return: True if the format is correct; False otherwise
     """
     if len(cmd_list) == 5:
-        if cmd_list[0] == "update" and check_int(cmd_list[1]) and check_int(cmd_list[2]) and check_int(cmd_list[3]) and check_data_format(cmd_list[4]):
+        if cmd_list[0] == "update" and check_int(cmd_list[1]) and check_int(cmd_list[2]) and check_int(
+                cmd_list[3]) and check_data_format(cmd_list[4]):
             return True
     return False
 
@@ -133,7 +137,8 @@ def get_month_from_data(date_time):
     n_month = int(date_time.split("-")[1])
 
     # List of months
-    months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+              "November", "December"]
     return months[n_month - 1]
 
 
@@ -151,7 +156,8 @@ def get_current_month():
     n_month = int(str(datem).split("-")[1])
 
     # List of months
-    months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+              "November", "December"]
     return months[n_month - 1]
 
 
@@ -163,6 +169,14 @@ def get_current_time():
     today = datetime.today()
     return str(datetime(today.year, today.month, today.day)).split()[0]
 
+
+def get_current_time_format():
+    """
+
+    :return:
+    """
+    today = datetime.today()
+    return datetime.strptime(f"{today.year}-{today.month}-{today.day}", '%Y-%m-%d')
 
 
 def get_previous_day(date):
@@ -186,6 +200,34 @@ def get_previous_day(date):
         year_return = year
     else:
         day_return = day - 1
+        month_return = month
+        year_return = year
+
+    return datetime.strptime(f"{year_return}-{month_return}-{day_return}", '%Y-%m-%d')
+
+
+def get_next_day(date):
+    """
+    Get the date of the next day
+    :param date:
+    :return: Next day of date
+    """
+    string_date = str(date)
+    time_list = string_date.split("-")
+    year = int(time_list[0])
+    month = int(time_list[1])
+    day = int(time_list[2][0:2])
+    days_month = get_num_days_for_month(month, year)
+    if day == days_month and month == 12:
+        day_return = 1
+        month_return = 1
+        year_return = year + 1
+    elif day == days_month and month != 12:
+        month_return = month + 1
+        day_return = 1
+        year_return = year
+    else:
+        day_return = day + 1
         month_return = month
         year_return = year
 
