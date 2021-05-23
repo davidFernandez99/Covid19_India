@@ -163,8 +163,9 @@ def get_current_month():
 
 def get_current_time():
     """
+    Get the current time in the following format YYYY-MM-DD
 
-    :return:
+    :return: a string with the time described above
     """
     today = datetime.today()
     return str(datetime(today.year, today.month, today.day)).split()[0]
@@ -265,7 +266,7 @@ def get_previous_point(client, measurement_name, date=None):
     """
     Get the previous point where we have data inserted starting from today
 
-    :param client:
+    :param client: the client that connects with InfluxDB and allow us to interact with the database
     :param measurement_name:
     :param date:
     :return:
@@ -308,8 +309,20 @@ def create_fields_dict(d_conf, d_dec, d_rec, t_conf, t_dec, t_rec):
 
 
 def recompute_total_fields_next_points(client, measurement_name, date, d_conf, d_dec, d_rec):
-    # --------------- RECALCULATE THE TOTAL OF EACH NEXT POINT ---------------
+    """
+    Recompute the total_fields for the next points. The total fields are the following ones:
+        total_confirmed
+        total_deceased
+        total_recovered
 
+    :param client: the client that connects with InfluxDB and allow us to interact with the database
+    :param measurement_name: the measurement name where we want to update the data
+    :param date: from where we will "start" to recompute the data
+    :param d_conf: the confirmed cases to be applied
+    :param d_dec: the deceased cases to be applied
+    :param d_rec: the recovered cases to be applied
+    :return:
+    """
     # Get next day
     next_date = get_next_day(date)
 
@@ -340,8 +353,18 @@ def recompute_total_fields_next_points(client, measurement_name, date, d_conf, d
         next_date = get_next_day(next_date)
 
 
-def recompute_values_for_month(table, measurement_name, days, total_confirmed, total_deceased, total_recovered):
+def recompute_values_for_month(table, month, days, total_confirmed, total_deceased, total_recovered):
+    """
+    Recompute the values for the specific month in the relational Database
 
+    :param table: table name where the month it is located
+    :param month: the month that we want to recompute the values
+    :param days: number of days (or points)
+    :param total_confirmed: total confirmed cases (value already computed)
+    :param total_deceased: total deceased cases (value already computed)
+    :param total_recovered: total recovered cases (value already computed)
+    :return:
+    """
 
     # Update the average values using the new values for that month
     avg_confirmed = round(total_confirmed / days, 2)
@@ -349,5 +372,5 @@ def recompute_values_for_month(table, measurement_name, days, total_confirmed, t
     avg_recovered = round(total_recovered / days, 2)
 
     # Update the data in the relational database
-    res_rl.update_data(table, measurement_name, avg_confirmed, avg_deceased, avg_recovered, total_confirmed,
+    res_rl.update_data(table, month, avg_confirmed, avg_deceased, avg_recovered, total_confirmed,
                        total_deceased, total_recovered, days)

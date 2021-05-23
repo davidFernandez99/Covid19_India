@@ -226,6 +226,7 @@ def create_and_write_json(client, json_file):
 def get_point(client, month, time):
     """
     Get a point from the database by making a query.
+
     :param client: the client that connects with InfluxDB and allow us to interact with the database
     :param month: the measurement name where the point is allocated
     :param time: the time is what differs us a point from others in the measurement
