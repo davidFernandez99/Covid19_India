@@ -206,7 +206,7 @@ def get_data(table_name, atr_tuple=None, dicc_conditions=None):
         else:
             cur.execute(f"SELECT {columns_select} FROM {table_name};")
 
-        return list(cur.fetchall())
+        return list(cur.fetchall())[0]
     except Exception as e:
         print(e)
 
@@ -243,7 +243,7 @@ def compute_data_from_time_series(table_name, db_name, month):
             # Check the year of the data
             time = data['time'].split("-")[0]
 
-            #If is a new year of this month we creat a new key for this year with the values, we need this cause we
+            # If is a new year of this month we creat a new key for this year with the values, we need this cause we
             # store all the years data in the same mesuarement in influxdb
             if time not in list(dicc_years.keys()):
                 dicc_years[time] = {'total_confirmed': 0, 'total_deceased': 0, 'total_recovered': 0, 'days': 0,

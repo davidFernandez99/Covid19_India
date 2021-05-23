@@ -17,9 +17,6 @@ def run(client):
         if command in ("close", "quit", "exit"):
             exit_program = True
 
-        #elif "select database" in command.lower():
-        #    logic.select_database(command, client)
-
         elif "insert" in command.lower():
             logic.insert_point(command, client)
 

@@ -1,6 +1,7 @@
 from influxdb import InfluxDBClient
 import resources as res
 import controller as contr
+import utils
 
 
 def main():
@@ -14,7 +15,8 @@ def main():
     # Welcome!
     res.show_title()
 
-    client.switch_database("weather_db")
+    # We will select directly the database that the client will use
+    client.switch_database(utils.TS_DB_NAME)
 
     # Start!
     contr.run(client)
