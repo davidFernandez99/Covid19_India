@@ -6,12 +6,8 @@ This file will create a new database into InfluxDB and will insert a json body w
 import os
 from influxdb import InfluxDBClient
 from timeSeriesDB import resources as res
+import utils
 
-# define database name
-DB_NAME = "weather_db"
-
-# List of months
-months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
 # Get path of the Json directory
 dir_path = os.path.dirname(os.path.realpath(__file__)).replace('timeSeriesDB', '/data')
@@ -27,16 +23,16 @@ except Exception as e:
     print(e)
 else:
     # Create a new database
-    res.create_new_database(client, DB_NAME)
+    res.create_new_database(client, utils.TS_DB_NAME)
 
     # Show databases
     res.show_databases(client)
 
     # Select database
-    res.select_database(client, DB_NAME)
+    res.select_database(client, utils.TS_DB_NAME)
 
     # Empty database if it was already filled
-    for month in months:
+    for month in utils.MONTHS:
         res.drop_measurement(client, month)
 
     # Check that it is empty

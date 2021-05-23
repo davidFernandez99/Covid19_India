@@ -5,173 +5,281 @@ import resources as res
 from timeSeriesDB import resources as ts
 from relationalDB import resources as rel_db
 from colorama import Fore
-
-TABLE_NAME = "india_covid_"
+import utils
 
 
 def insert_point(command, client):
     """
+    Main logic to insert a new point in the InfluxDB. Based on the data entered by the user, we need to get the measurement name
+    where we want to insert the point and the previous point in order to update the total fields (since they are not asked to the user
+    to insert them). Once we have computed and checked that all is in the correct format we insert the point in the corresponding
+    measurement with the current time.
 
-    :param command:
-    :param client:
+    Afterwards, we need to update the values for that specific month in the relational database. For that we need to get the previous data
+    and update each field taking in account the new point inserted. For that, we will add +1 in total days (this is like total points
+    for that month). Moreover, we will add to the corresponding total_* fields the values inserted by the user. For example:
+
+    total_recovered = total_previous_recovered + recovered_today
+
+    Furthermore, we need also to recompute the average values. However, this will be easy since we have all the data. We only need to
+    divide each total_* field by the total days. For example:
+
+    avg_confirmed = total_recovered / total_days
+
+    Note: we can not use the total*  values from the Time Series DB since they are the total accumulative. In the relational DB
+    we have the total_* value for only that specific month, it is not accumulative. This is why we will have months with bigger
+    numbers than others.
+
+    :param command: the command introduced by the user where we have the values for today that will be inserted in the databases
+    :param client: the client which is connected to InfluxDB and will be used to interact with the database
     :return:
     """
+    # Let's split the command by spaces and get in a list format so it will be easy to process
     cmd_list = command.split()
+
+    # Check that each value inserted is in the correct format
     if res.check_format_insert_point(cmd_list):
 
+        """
+         ########################################## TIME SERIES DB ########################################## 
+        """
+
+        # Get the month which will be the measurement_name where the point will be inserted
         measurement_name = res.get_current_month()
-        ########################################## INFLUX DB ################################################
-        previous_point = []
-        data = res.get_previous_day(res.get_current_time())
-        while len(previous_point) == 0:
-            previous_point = ts.get_point(client, measurement_name, data)
 
-            data = res.get_previous_day(data)
+        # Get the previous point before inserting the current one in order to calculate the total_* fields
+        previous_point = res.get_previous_point(client, measurement_name)
 
-        # Get previous point before inserting the current one in order to calculate the total_*
-        previous_point = previous_point[0][0]
-
+        # Computing the total_* fields using the previous point
         total_confirmed = int(previous_point["totalconfirmed"]) + int(cmd_list[1])
         total_deceased = int(previous_point["totaldeceased"]) + int(cmd_list[2])
         total_recovered = int(previous_point["totalrecovered"]) + int(cmd_list[3])
 
         # Get points as dictionary
-        points = {
-            "dailyconfirmed": cmd_list[1],
-            "dailydeceased": cmd_list[2],
-            "dailyrecovered": cmd_list[3],
-            "totalconfirmed": str(total_confirmed),
-            "totaldeceased": str(total_deceased),
-            "totalrecovered": str(total_recovered)
-        }
+        points = res.create_fields_dict(cmd_list[1], cmd_list[2], cmd_list[3], str(total_confirmed), str(total_deceased), str(total_recovered))
 
+        # Now we have all the fields in the correct format so we insert them in the database
         ts.insert_point(client, measurement_name, points)
 
-        ########################################## RELATIONAL DB ################################################
 
+        """
+         ########################################## RELATIONAL DB ########################################## 
+        """
+
+        # Get in which table we have to make the changes
         year = res.get_current_time().split("-")[0]
-        table_name = TABLE_NAME + year
-        # Tuple in order with all the info
-        query_month_output = rel_db.get_data(table_name, dicc_conditions={"month": measurement_name})[0]
+        table_name = utils.TABLE_NAME + year
+
+        # Get the information we had before for that specific month, in order to update it
+        query_month_output = rel_db.get_data(table_name, dicc_conditions={"month": measurement_name})
+
+        # We are inserting one more data so we have to sum 1 to total days
         days = int(query_month_output[-1]) + 1
+
+        # Compute total_* using the information we got from the query for the specific month
         total_confirmed = int(query_month_output[4]) + int(cmd_list[1])
         total_deceased = int(query_month_output[5]) + int(cmd_list[2])
         total_recovered = int(query_month_output[6]) + int(cmd_list[3])
-        avg_confirmed = total_confirmed / days
-        avg_deceased = total_confirmed / days
-        avg_recovered = total_confirmed / days
 
+        # Update the average values using the new values for that month
+        avg_confirmed = round(total_confirmed / days, 2)
+        avg_deceased = round(total_deceased / days, 2)
+        avg_recovered = round(total_recovered / days, 2)
+
+        # Update the data in the relational database
         rel_db.update_data(table_name, measurement_name, avg_confirmed, avg_deceased, avg_recovered, total_confirmed,
                            total_deceased, total_recovered, days)
 
 
 def update_point(command, client):
+    """
+    Main logic to update a new point in the InfluxDB. Based on the data entered by the user, we need to get the measurement name
+    where we want to update the point and the previous point in order to update the total fields (since they are not asked to the user
+    to insert them). Once we have computed and checked that all is in the correct format we update the point in the corresponding
+    measurement with the time specified by the user.
+
+    Afterwards, we need to update the values for that specific month in the relational database. For that we need to get the previous data
+    and update each field taking into account the new values of the updated point. For that, we will take the same number for total days
+    (this is like total points for that month). Moreover, we will update the corresponding total_* fields with the values inserted by the user
+    and subtract the value that was before. For example:
+
+    total_recovered = total_previous_recovered + recovered_new_point - recovered_old_point
+
+    Furthermore, we need also to recompute the average values. However, this will be easy since we have all the data. We only need to
+    divide each total_* field by the total days. For example:
+
+    avg_confirmed = total_recovered / total_days
+
+    Note: we can not use the total*  values from the Time Series DB since they are the total accumulative. In the relational DB
+    we have the total_* value for only that specific month, it is not accumulative. This is why we will have months with bigger
+    numbers than others.
+
+    :param command: the command introduced by the user where we have the values for today that will be inserted in the databases
+    :param client: the client which is connected to InfluxDB and will be used to interact with the database
+    :return:
+    """
+    # Let's split the command by spaces and get in a list format so it will be easy to process
     cmd_list = command.split()
+
+    # Check that each value inserted is in the correct format
     if res.check_format_update_point(cmd_list):
-        # Get measurement_name
+
+        """
+         ########################################## TIME SERIES DB ########################################## 
+        """
+
+        # Get the month which will be the measurement_name where the point will be updated
         measurement_name = res.get_month_from_data(cmd_list[4])
-        data = cmd_list[4]
-        current_point = ts.get_point(client, measurement_name, data)
-        if len(current_point == 0):
+
+        # Get the date that identifies the point in the measurement, so we can update that point
+        date = cmd_list[4]
+
+        # Get the point that will be updated
+        current_point = ts.get_point(client, measurement_name, date)
+
+        # The point might not be in the database!
+        if len(current_point) == 0:
             print(Fore.RED + "Error! Can't update cause this day is not stored in the database.")
-            pass
+            return
+        else:
+            # It is a dictionary inside a list, inside another list (if not empty)
+            current_point = current_point[0][0]
 
-        ########################################## INFLUX DB ################################################
-        # Get current point before inserting the current one in order to calculate the total_*
-        previous_point = []
-        data_prev = res.get_previous_day(res.get_current_time())
-        while len(previous_point) == 0:
-            previous_point = ts.get_point(client, measurement_name, data_prev)
-            data_prev = res.get_previous_day(data_prev)
-        previous_point = previous_point[0]
+        # Get previous point before updating the current one in order to calculate the total_*
+        previous_point = res.get_previous_point(client, measurement_name, date)
 
+        # Computing the total_* fields using the previous point
         total_confirmed = int(previous_point["totalconfirmed"]) + int(cmd_list[1])
         total_deceased = int(previous_point["totaldeceased"]) + int(cmd_list[2])
         total_recovered = int(previous_point["totalrecovered"]) + int(cmd_list[3])
 
         # Get points as dictionary
-        points = {
-            "dailyconfirmed": cmd_list[1],
-            "dailydeceased": cmd_list[2],
-            "dailyrecovered": cmd_list[3],
-            "totalconfirmed": str(total_confirmed),
-            "totaldeceased": str(total_deceased),
-            "totalrecovered": str(total_recovered)
-        }
+        points = res.create_fields_dict(cmd_list[1], cmd_list[2], cmd_list[3], str(total_confirmed), str(total_deceased), str(total_recovered))
 
-        ts.update_point(client, measurement_name, points, data)
+        # Now we have all the fields in the correct format so we update them in the database
+        ts.update_point(client, measurement_name, points, date)
 
-        ########################################## RELATIONAL DB ################################################
+        # --------------- RECALCULATE THE TOTAL OF EACH NEXT POINT ---------------
+        #
+        #   new_total_next_point = old_total_next_point + (new_total_current_point - old_total_current_point)
+        #                                                 |__________________________________________________|
+        #                                                                          |
+        #                                               We are passing this part of the formula to the function
+        #
 
-        year = data.split("-")[0]
-        table_name = TABLE_NAME + year
-        current_point = current_point[0]
+        # Since we updated a point we need to compute the difference to sum or subtract to the total value
+        res.recompute_total_fields_next_points(client, measurement_name, date,
+                                               total_confirmed - int(current_point["dailyconfirmed"]),
+                                               total_deceased - int(current_point["dailydeceased"]),
+                                               total_recovered - int(current_point["dailyrecovered"]))
 
-        # Tuple in order with all the info
-        query_month_output = rel_db.get_data(table_name, dicc_conditions={"month": measurement_name})[0]
-        days = int(query_month_output[-1])
 
-        # Get curren total for the month, sum the new value for the day in the month and substract old value that was for this day
-        total_confirmed = int(query_month_output[4]) + int(cmd_list[1]) - current_point["dailyconfirmed"]
-        total_deceased = int(query_month_output[5]) + int(cmd_list[2]) - current_point["dailydeceased"]
-        total_recovered = int(query_month_output[6]) + int(cmd_list[3]) - current_point["dailyrecovered"]
-        avg_confirmed = total_confirmed / days
-        avg_deceased = total_confirmed / days
-        avg_recovered = total_confirmed / days
+        """
+         ########################################## RELATIONAL DB ########################################## 
+        """
 
-        rel_db.update_data(table_name, measurement_name, avg_confirmed, avg_deceased, avg_recovered, total_confirmed,
-                           total_deceased, total_recovered, days)
+        # Get in which tables we have to make the changes
+        year = date.split("-")[0]
+
+        current_year = str(res.get_current_time()).split("-")[0]
+
+        years = [y for y in range(int(year), int(current_year) + 1)]
+        tables = [utils.TABLE_NAME + str(y) for y in years]
+
+        id_start_month = utils.MONTHS.index(measurement_name)
+
+        for table in tables:
+            # We have 12 months
+            for m in range(12):
+                # This will check if the year of the point we deleted matches with the name of the table, if it matches we will
+                # start to recompute since the month we deleted the point. For rest of the year we do it for all months since
+                # all of them are modified
+                # Example:
+                # '2020' in 'table_name_2020' and 4 >= 4 or ... [OK]
+                # '2020' in 'table_name_2020' and 3 >= 4 or '2020' not in 'table_name_2020' [NO]
+                # ... or '2020' not in 'table_name_2021'        [OK]
+                if (year in table and m >= id_start_month) or (year not in tables):
+                    query_month_output = rel_db.get_data(table, dicc_conditions={"month": utils.MONTHS[m]})
+
+                    # We are just updating a point that already exists so there is no need to modify the number of total days (== total points in that month)
+                    days = query_month_output[-1]
+
+                    res.recompute_values_for_month(table, utils.MONTHS[m], days,
+                                                   int(query_month_output[4]) + int(cmd_list[1]) - int(current_point["dailyconfirmed"]),
+                                                   int(query_month_output[5]) + int(cmd_list[2]) - int(current_point["dailydeceased"]),
+                                                   int(query_month_output[6]) + int(cmd_list[3]) - int(current_point["dailyrecovered"]))
 
 
 def delete_point(command, client):
+    # Let's split the command by spaces and get in a list format so it will be easy to process
     cmd_list = command.split()
+    print(cmd_list)
+
+    # Check that each value inserted is in the correct format
     if res.check_format_delete_point(cmd_list):
 
-        # Get measurement_name
+        """
+         ########################################## TIME SERIES DB ########################################## 
+        """
+
+        # Get the month which will be the measurement_name where the point will be deleted
         measurement_name = res.get_month_from_data(cmd_list[1])
-        data = cmd_list[1]
-        current_point = ts.get_point(client, measurement_name, data)
-        if len(current_point == 0):
+
+        # Get the date that identifies the point in the measurement, so we can delete that point
+        date = cmd_list[1]
+
+        # Get the point that will be deleted
+        current_point = ts.get_point(client, measurement_name, date)
+        print(current_point)
+
+        if len(current_point) == 0:
             print(Fore.RED + "Error! Can't delete cause this day is not stored in the database.")
-            pass
-        current_point = current_point[0]
-        ########################################## INFLUX DB ################################################
-        ts.delete_data(client, measurement_name, data)
-        # Recalculate the total of each next point in the influxdb
-        data_next = res.get_next_day(res.get_current_time())
-        today_date = res.get_current_time_format()
-        while data_next != today_date:
-            next_point = ts.get_point(client, measurement_name, data_next)
-            if len(next_point) != 0:
-                next_point = next_point[0]
-                points = {
-                    "dailyconfirmed": next_point["dailyconfirmed"],
-                    "dailydeceased": next_point["dailydeceased"],
-                    "dailyrecovered": next_point["dailyrecovered"],
-                    "totalconfirmed": int(next_point["totalconfirmed"]) - current_point["dailyconfirmed"],
-                    "totaldeceased": int(next_point["totaldeceased"]) - current_point["dailydeceased"],
-                    "totalrecovered": int(next_point["totalrecovered"]) - current_point["dailyrecovered"]
-                }
-                ts.update_point(client, measurement_name, points, data_next)
-            data_next = res.get_next_day(data_next)
+            return
+        else:
+            # It is a dictionary inside a list, inside another list (if not empty)
+            current_point = current_point[0][0]
 
-        ########################################## RELATIONAL DB ################################################
+        # Delete the point
+        ts.delete_data(client, measurement_name, date)
 
-        year = data.split("-")[0]
-        table_name = TABLE_NAME + year
+        # --------------- RECALCULATE THE TOTAL OF EACH NEXT POINT ---------------
+        # Since we deleted a point we need to subtract the total value to each next point (since it is an accumulative value)
+        res.recompute_total_fields_next_points(client, measurement_name, date,
+                                               - int(current_point["dailyconfirmed"]),
+                                               - int(current_point["dailydeceased"]),
+                                               - int(current_point["dailyrecovered"]))
 
-        # Tuple in order with all the info
-        query_month_output = rel_db.get_data(table_name, dicc_conditions={"month": measurement_name})[0]
-        days = int(query_month_output[-1]) - 1
+        """
+         ########################################## RELATIONAL DB ########################################## 
+        """
 
-        # Get curren total for the month, sum the new value for the day in the month and substract old value that was for this day
-        total_confirmed = int(query_month_output[4]) - current_point["dailyconfirmed"]
-        total_deceased = int(query_month_output[5]) - current_point["dailydeceased"]
-        total_recovered = int(query_month_output[6]) - current_point["dailyrecovered"]
-        avg_confirmed = total_confirmed / days
-        avg_deceased = total_confirmed / days
-        avg_recovered = total_confirmed / days
+        # Get in which tables we have to make the changes
+        year = date.split("-")[0]
 
-        rel_db.update_data(table_name, measurement_name, avg_confirmed, avg_deceased, avg_recovered,
-                           total_confirmed,
-                           total_deceased, total_recovered, days)
+        current_year = str(res.get_current_time()).split("-")[0]
+
+        years = [y for y in range(int(year), int(current_year) + 1)]
+        tables = [utils.TABLE_NAME + str(y) for y in years]
+
+        id_start_month = utils.MONTHS.index(measurement_name)
+
+        for table in tables:
+            # We have 12 months
+            for m in range(12):
+                # This will check if the year of the point we deleted matches with the name of the table, if it matches we will
+                # start to recompute since the month we deleted the point. For rest of the year we do it for all months since
+                # all of them are modified
+                # Example:
+                # '2020' in 'table_name_2020' and 4 >= 4 or ... [OK]
+                # '2020' in 'table_name_2020' and 3 >= 4 or '2020' not in 'table_name_2020' [NO]
+                # ... or '2020' not in 'table_name_2021'        [OK]
+                if (year in table and m >= id_start_month) or (year not in tables):
+                    query_month_output = rel_db.get_data(table, dicc_conditions={"month": utils.MONTHS[m]})
+
+                    # We deleted a point we need to modify the number of total days (== total points in that month)
+                    days = query_month_output[-1] - 1
+
+                    res.recompute_values_for_month(table, utils.MONTHS[m], days,
+                                                   int(query_month_output[4]) - int(current_point["dailyconfirmed"]),
+                                                   int(query_month_output[5]) - int(current_point["dailydeceased"]),
+                                                   int(query_month_output[6]) - int(current_point["dailyrecovered"]))
