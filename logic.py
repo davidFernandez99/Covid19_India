@@ -184,7 +184,7 @@ def update_point(command, client):
         #
 
         # Since we updated a point we need to compute the difference to sum or subtract to the total value
-        res.recompute_total_fields_next_points(client, measurement_name, date,
+        res.recompute_total_fields_next_points(client, date,
                                                total_confirmed - int(current_point["dailyconfirmed"]),
                                                total_deceased - int(current_point["dailydeceased"]),
                                                total_recovered - int(current_point["dailyrecovered"]))
@@ -247,7 +247,6 @@ def delete_point(command, client):
     """
     # Let's split the command by spaces and get in a list format so it will be easy to process
     cmd_list = command.split()
-    print(cmd_list)
 
     # Check that each value inserted is in the correct format
     if res.check_format_delete_point(cmd_list):
@@ -278,7 +277,7 @@ def delete_point(command, client):
 
         # --------------- RECALCULATE THE TOTAL OF EACH NEXT POINT ---------------
         # Since we deleted a point we need to subtract the total value to each next point (since it is an accumulative value)
-        res.recompute_total_fields_next_points(client, measurement_name, date,
+        res.recompute_total_fields_next_points(client, date,
                                                - int(current_point["dailyconfirmed"]),
                                                - int(current_point["dailydeceased"]),
                                                - int(current_point["dailyrecovered"]))

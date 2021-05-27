@@ -229,7 +229,10 @@ def compute_data_from_time_series(table_name, db_name, month):
         res.select_database(client, db_name)
 
         lista_tablas = get_data('information_schema.tables', ('table_name'), {'table_schema': 'public'})
-        lista_tablas = [tupla[0] for tupla in lista_tablas]
+        if lista_tablas:
+            lista_tablas = [tupla[0] for tupla in lista_tablas]
+        else:
+            lista_tablas = []
         print(f"lista tablas: {lista_tablas}")
 
         # init
