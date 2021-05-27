@@ -2,9 +2,7 @@
 This file will contain all the functions which will allow us to interact with InfluxDB (our time series DB).
 """
 import json
-import datetime
-
-from influxdb import InfluxDBClient
+from datetime import datetime
 
 
 def create_new_database(client, db_name):
@@ -64,6 +62,7 @@ def insert_point(client, measurement_name, points):
         {
             "measurement": measurement_name,
             "tags": {},
+            "time": get_current_time(),  # Since we want 00:00:00
             "fields": points
         }
     ]
@@ -199,7 +198,7 @@ def create_and_write_json(client, json_file):
         for day in list_data:
             # Get data from dictionary
             measurement = day["date"].split()[1]
-            time = datetime.datetime.strptime(day["dateymd"], '%Y-%m-%d')
+            time = datetime.strptime(day["dateymd"], '%Y-%m-%d')
             fields = {
                 "dailyconfirmed": day["dailyconfirmed"],
                 "dailydeceased": day["dailydeceased"],
@@ -235,3 +234,13 @@ def get_point(client, month, time):
     print(month)
     print(time)
     return list(client.query(f"SELECT * FROM {month} WHERE (time='{time}');"))
+
+
+def get_current_time():
+    """
+    Get the current time in the following format YYYY-MM-DD
+
+    :return: a string with the time described above
+    """
+    today = datetime.today()
+    return str(datetime(today.year, today.month, today.day)).split()[0]

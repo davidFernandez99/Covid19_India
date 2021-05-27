@@ -12,21 +12,21 @@ def run(client):
     exit_program = False
     while not exit_program:
 
-        command = input("\n>>").strip()
+        command = input("\n>>").strip().lower()
 
         if command in ("close", "quit", "exit"):
             exit_program = True
 
-        elif "insert" in command.lower():
+        elif "insert" in command:
             logic.insert_point(command, client)
 
-        elif "update" in command.lower():
+        elif "update" in command:
             logic.update_point(command, client)
 
-        elif "delete" in command.lower():
+        elif "delete" in command:
             logic.delete_point(command, client)
 
-        elif command.lower() in ("h", "help", "-h", "-help", "--h", "--help"):
+        elif command in ("h", "help", "-h", "-help", "--h", "--help"):
             res.show_help_commands()
 
         else:

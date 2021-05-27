@@ -137,7 +137,7 @@ def get_month_from_data(date_time):
     :return: a string with the month name
     """
     # Get the month as integer number
-    n_month = int(date_time.split("-")[1])
+    n_month = int(str(date_time).split("-")[1])
 
     # List of months
     months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
@@ -178,6 +178,15 @@ def get_current_time_format():
     """
     today = datetime.today()
     return datetime.strptime(f"{today.year}-{today.month}-{today.day}", '%Y-%m-%d')
+
+
+def get_next_current_time_format():
+    """
+
+    :return:
+    """
+    today = datetime.today()
+    return datetime.strptime(f"{today.year}-{today.month}-{today.day + 1}", '%Y-%m-%d')
 
 
 def get_previous_day(date):
@@ -276,6 +285,7 @@ def get_previous_point(client, measurement_name, date=None):
     if not date:
         date = get_current_time()
 
+    # Get previous day
     data = get_previous_day(date)
 
     while len(previous_point) == 0:
@@ -308,7 +318,7 @@ def create_fields_dict(d_conf, d_dec, d_rec, t_conf, t_dec, t_rec):
     return points
 
 
-def recompute_total_fields_next_points(client, measurement_name, date, d_conf, d_dec, d_rec):
+def recompute_total_fields_next_points(client, date, d_conf, d_dec, d_rec):
     """
     Recompute the total_fields for the next points. The total fields are the following ones:
         total_confirmed
@@ -316,7 +326,6 @@ def recompute_total_fields_next_points(client, measurement_name, date, d_conf, d
         total_recovered
 
     :param client: the client that connects with InfluxDB and allow us to interact with the database
-    :param measurement_name: the measurement name where we want to update the data
     :param date: from where we will "start" to recompute the data
     :param d_conf: the confirmed cases to be applied
     :param d_dec: the deceased cases to be applied
@@ -326,11 +335,14 @@ def recompute_total_fields_next_points(client, measurement_name, date, d_conf, d
     # Get next day
     next_date = get_next_day(date)
 
-    # Current day
-    today_date = get_current_time_format()
+    # Current day + 1
+    today_date = get_next_current_time_format()
 
     # We will do it till we get to the last point (it is supposed to be the current day)
     while next_date != today_date:
+
+        # Measurement name update
+        measurement_name = get_month_from_data(next_date)
 
         # Let's get the next point
         next_point = res_ts.get_point(client, measurement_name, next_date)
